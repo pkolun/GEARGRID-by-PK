@@ -1109,6 +1109,11 @@
 
                         <p style="margin-top: 20px;"><strong>Lokalizacja docelowa:</strong> ${loc ? loc.name : ''}</p>
                         ${tx.plannedReturnDate ? `<p><strong>Planowana data zwrotu:</strong> ${tx.plannedReturnDate}</p>` : ''}
+
+                    <div style="margin-top: 20px; padding: 15px; border: 1px dashed #ccc; background: #fafafa;">
+						<strong>Uwagi:</strong><br>
+						${tx.notes || 'Brak uwag.'}
+					</div>
                         
                         <div style="margin-top: 50px; display: flex; justify-content: space-between;">
                             <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 5px;">Podpis Wydającego</div>
@@ -1534,4 +1539,5 @@
     </script>
 </body>
 </html>
+
 
