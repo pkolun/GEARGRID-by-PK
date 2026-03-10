@@ -516,6 +516,11 @@
                         <input type="text" name="tags" id="eq-f-tags" placeholder="np. pilne, zestaw1">
                     </div>
                     
+                    <div class="form-group full-width">
+                        <label>Pozycja GPS (Współrzędne np. 52.40, 16.92 lub Link do systemu zewnętrznego)</label>
+                        <input type="text" name="gpsLocation" id="eq-f-gps" placeholder="Współrzędne mapy lub link (http...) do systemu operatora GPS">
+                    </div>
+                    
                     <div class="form-group full-width"><hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;"></div>
                     <h3 class="form-group full-width" style="margin-top:0;">Terminy i Daty</h3>
                     
@@ -907,6 +912,7 @@
                     document.getElementById('eq-f-sn').value = eq.serialNumber || '';
                     document.getElementById('eq-location-select').value = eq.locationId || '';
                     document.getElementById('eq-f-tags').value = (eq.tags || []).join(', ');
+					document.getElementById('eq-f-gps').value = eq.gpsLocation || '';
                     document.getElementById('eq-f-purchase').value = eq.purchaseDate || '';
                     document.getElementById('eq-f-ins').value = eq.insuranceExpiry || '';
                     document.getElementById('eq-f-tech').value = eq.techInspectionDate || '';
@@ -1406,11 +1412,25 @@
                 document.getElementById('equipment-details-actions').innerHTML = quickActionHtml + `<button class="btn btn-secondary" id="btn-edit-equipment">Edytuj dane</button>`;
                 
                 let currentlyWith = '-';
-                if(eq.status === 'issued') {
+             if(eq.status === 'issued') {
                     const lastIssue = [...AppState.transactions].filter(t => t.equipmentId === eq.id && t.type === 'issue').pop();
                     if(lastIssue) {
                         const emp = AppState.employees.find(e => e.id === lastIssue.employeeId);
                         currentlyWith = emp ? `<span style="color:var(--primary); font-weight:bold;">${emp.firstName} ${emp.lastName}</span>` : 'Nieznany pracownik';
+                    }
+                }
+
+                let gpsHtml = '';
+                if(eq.gpsLocation && eq.gpsLocation.trim() !== '') {
+                    const gpsVal = eq.gpsLocation.trim();
+                    if (gpsVal.startsWith('http')) {
+                        gpsHtml = `<div class="details-group" style="grid-column: 1 / -1; margin-top: 1rem;"><div class="details-label">Lokalizacja na żywo (GPS)</div><div class="details-val"><a href="${gpsVal}" target="_blank" class="btn btn-secondary">📍 Otwórz panel GPS pojazdu</a></div></div>`;
+                    } else {
+                        const q = encodeURIComponent(gpsVal);
+                        gpsHtml = `<div class="details-group" style="grid-column: 1 / -1; margin-top: 1rem;">
+                            <div class="details-label">Lokalizacja (GPS)</div>
+                            <div class="map-container"><iframe src="https://maps.google.com/maps?q=${q}&t=&z=14&ie=UTF8&iwloc=&output=embed"></iframe></div>
+                        </div>`;
                     }
                 }
 
@@ -1442,6 +1462,7 @@
                             <div class="details-group"><div class="details-label">Przegląd techniczny</div><div class="details-val">${eq.techInspectionDate||'-'}</div></div>
                             <div class="details-group"><div class="details-label">Kalibracja / UDT</div><div class="details-val">${eq.calibrationDate||'-'}</div></div>
                         </div>
+						${gpsHtml}
                     </div>
                     <div class="details-group" style="margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1.5rem;">
                         <div class="details-label">Notatki</div><div class="details-val" style="white-space:pre-wrap;">${eq.notes||'Brak notatek'}</div>
@@ -1539,5 +1560,6 @@
     </script>
 </body>
 </html>
+
 
 
