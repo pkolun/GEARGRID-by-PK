@@ -82,7 +82,8 @@
         .topbar-actions { display: flex; gap: 1rem; align-items: center; }
         
         /* Cloud Sync Indicator */
-        .sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.25rem 0.75rem; background: var(--bg-body); border-radius: 20px; border: 1px solid var(--border-color);}
+        .sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.25rem 0.75rem; background: var(--bg-body); border-radius: 20px; border: 1px solid var(--border-color); cursor: pointer; transition: var(--transition); user-select: none; }
+        .sync-status:hover { background: var(--border-color); }
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
         .sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }
         .sync-dot.error { background: var(--danger); }
@@ -236,7 +237,7 @@
                     </div>
                 </div>
                 <div class="topbar-actions">
-                    <div class="sync-status" id="sync-indicator">
+                    <div class="sync-status" id="sync-indicator" onclick="StorageManager.forceSync()" title="Kliknij, aby wymusić pobranie danych z chmury">
                         <div class="sync-dot"></div> <span id="sync-text">Zsynchronizowano</span>
                     </div>
                     <button class="btn-theme" id="theme-toggle" title="Zmień motyw">🌙</button>
@@ -748,18 +749,19 @@
         const CloudAPI = {
             async fetchAll() {
                 try {
-                    // Czasami Google Apps Script rzuca błędem CORS, jeśli skrypt nie jest skonfigurowany do zwracania odpowiednich nagłówków.
-                    // Najprostszą metodą jest pominięcie CORS, jeśli po stronie GAS mamy GET zwracający JSON.
-                    // Jeśli wystąpią problemy z CORS po stronie przeglądarki, najbezpieczniej użyć trybu 'cors' lub zrezygnować z fetch i pobrać dane używając script tagów, ale zazwyczaj tryb 'cors' z poprawnie ustawionym GAS działa.
-                    const response = await fetch(GAS_API_URL, {
+                    // Dodajemy znacznik czasu, aby uniknąć cachowania zapytania przez przeglądarkę (wymuszamy świeże dane)
+                    const separator = GAS_API_URL.includes('?') ? '&' : '?';
+                    const fetchUrl = GAS_API_URL + separator + 'nocache=' + new Date().getTime();
+                    
+                    const response = await fetch(fetchUrl, {
                         method: 'GET',
-                        mode: 'cors'
+                        headers: { 'Accept': 'application/json' }
                     });
+                    
                     if (!response.ok) throw new Error('Network response was not ok');
                     return await response.json();
                 } catch (error) {
                     console.error("Cloud fetch error:", error);
-                    // Tutaj możemy zalogować dodatkowe informacje dla ułatwienia debugowania. W przypadku testowania lokalnego mogą pojawić się problemy z CORS.
                     return null;
                 }
             },
@@ -767,18 +769,16 @@
             async pushAll(appState) {
                 UI.setSyncStatus('syncing');
                 try {
-                    // Wysyłanie danych metodą POST używając fetch z 'no-cors' by ominąć blokadę przeglądarki
-                    // GAS domyślnie pozwala na odbieranie danych POST.
+                    // Używamy standardowego POST z text/plain, co omija preflight CORS w przeglądarce,
+                    // a Google Apps Script prawidłowo przyjmuje to w doPost()
                     const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
-                           'Content-Type': 'text/plain', // Omija preflight (OPTIONS)
+                           'Content-Type': 'text/plain;charset=utf-8',
                         },
                         body: JSON.stringify(appState)
                     });
-                    // Kiedy używamy no-cors, typ odpowiedzi to 'opaque', więc nie możemy odczytać JSON-a z response.
-                    // Przyjmujemy założenie że wykonanie bez błędu rzucanego przez sieć oznacza sukces.
+                    
                     UI.setSyncStatus('success');
                     return true;
                 } catch (error) {
@@ -801,13 +801,31 @@
                 else this.initEmptyState();
 
                 if(GAS_API_URL !== 'TUTAJ_WKLEJ_SWOJ_LINK_Z_GOOGLE_APPS_SCRIPT') {
-                    const cloudData = await CloudAPI.fetchAll();
-                    if(cloudData && cloudData.equipment) {
-                        // Merge or replace AppState
-                        AppState = cloudData;
-                        if (!AppState.dismissedAlerts) AppState.dismissedAlerts = [];
-                        localStorage.setItem(this.dbName, JSON.stringify(AppState));
-                    }
+                    await this.fetchFromCloud();
+                }
+            },
+
+            async fetchFromCloud() {
+                UI.setSyncStatus('syncing');
+                const cloudData = await CloudAPI.fetchAll();
+                if(cloudData && cloudData.equipment) {
+                    AppState = cloudData;
+                    if (!AppState.dismissedAlerts) AppState.dismissedAlerts = [];
+                    localStorage.setItem(this.dbName, JSON.stringify(AppState));
+                    UI.setSyncStatus('success');
+                    return true;
+                }
+                UI.setSyncStatus('error');
+                return false;
+            },
+
+            async forceSync() {
+                const success = await this.fetchFromCloud();
+                if(success) {
+                    Render.all();
+                    alert("Zaktualizowano dane z chmury pomyślnie.");
+                } else {
+                    alert("Błąd połączenia z bazą chmurową Google Sheets. Upewnij się, że link w kodzie jest poprawny.");
                 }
             },
 
