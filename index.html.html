@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GearGrid by PK - ERP (Cloud Sync)</title>
+    <style>
+        /* ==========================================================================
+           1. CSS VARIABLES & THEMES
+           ========================================================================== */
+        :root {
+            --bg-body: #f4f6f9;
+            --bg-surface: #ffffff;
+            --bg-sidebar: #1e293b;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --text-sidebar: #cbd5e1;
+            --border-color: #e2e8f0;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --border-radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-surface: #1e293b;
+            --bg-sidebar: #020617;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ==========================================================================
+           2. RESET, BASE & LOADER
+           ========================================================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; overflow-x: hidden; }
+        ul { list-style: none; }
+        a { text-decoration: none; color: inherit; }
+        button { cursor: pointer; border: none; background: none; font-family: inherit; }
+        input, select, textarea { font-family: inherit; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); border-radius: 4px; margin-bottom: 1rem; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        input[type="checkbox"] { width: auto; margin-right: 0.5rem; margin-bottom: 0; transform: scale(1.2); cursor: pointer; }
+
+        /* Loader */
+        #app-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s; }
+        .spinner { width: 50px; height: 50px; border: 5px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* ==========================================================================
+           3. LAYOUT
+           ========================================================================== */
+        .app-container { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--bg-sidebar); color: var(--text-sidebar); display: flex; flex-direction: column; transition: var(--transition); z-index: 100; }
+        .sidebar-header { padding: 1.5rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;}
+        .brand-name { display: flex; align-items: baseline; gap: 4px; }
+        .brand-main { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; }
+        .brand-sub { font-size: 0.8rem; font-weight: 400; color: #94a3b8; }
+        
+        .nav-menu { flex: 1; padding: 1rem 0; }
+        .nav-item { padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; transition: var(--transition); cursor: pointer; }
+        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); color: #fff; border-left: 4px solid var(--primary); }
+        .hamburger-menu { display: none; color: white; font-size: 1.5rem; }
+
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar { background-color: var(--bg-surface); padding: 1rem 2rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+        .search-bar { position: relative; width: 300px; }
+        .search-bar input { margin: 0; border-radius: 20px; padding: 0.5rem 1rem; }
+        .search-results { position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: var(--shadow); display: none; max-height: 300px; overflow-y: auto; z-index: 1000;}
+        .search-results.active { display: block; }
+        .search-result-item { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .search-result-item:hover { background-color: rgba(59, 130, 246, 0.1); }
+        .topbar-actions { display: flex; gap: 1rem; align-items: center; }
+        
+        /* Cloud Sync Indicator */
+        .sync-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.25rem 0.75rem; background: var(--bg-body); border-radius: 20px; border: 1px solid var(--border-color);}
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+        .sync-dot.syncing { background: var(--warning); animation: pulse 1s infinite; }
+        .sync-dot.error { background: var(--danger); }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .btn-theme { font-size: 1.25rem; }
+
+        /* View Container */
+        .content-area { padding: 2rem; flex: 1; overflow-y: auto; }
+        .view-section { display: none; animation: fadeIn 0.2s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ==========================================================================
+           4. COMPONENTS
+           ========================================================================== */
+        /* Cards */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--bg-surface); padding: 1.5rem; border-radius: var(--border-radius); box-shadow: var(--shadow); border-left: 4px solid var(--primary); cursor: pointer; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .stat-card h3 { color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .stat-card .value { font-size: 2rem; font-weight: bold; }
+        .stat-card.warning { border-color: var(--warning); }
+        .stat-card.danger { border-color: var(--danger); }
+        .stat-card.success { border-color: var(--success); }
+
+        /* Typography & Headers */
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;}
+        .page-title { font-size: 1.75rem; font-weight: 600; display: flex; align-items: center; gap: 1rem; }
+
+        /* Buttons */
+        .btn { padding: 0.5rem 1rem; border-radius: 4px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; transition: var(--transition); border: 1px solid transparent; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background-color: var(--border-color); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-small { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+        .btn-icon { background: none; border: none; font-size: 1.2rem; padding: 0.2rem; color: var(--text-muted); }
+        .btn-icon:hover { color: var(--danger); }
+
+        /* Tables */
+        .table-container { background: var(--bg-surface); border-radius: var(--border-radius); box-shadow: var(--shadow); overflow-x: auto; margin-bottom: 1rem;}
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 1rem; border-bottom: 1px solid var(--border-color); }
+        th { background-color: rgba(0,0,0,0.02); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        tr:hover { background-color: rgba(59, 130, 246, 0.02); }
+        
+        /* Badges */
+        .badge { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge.available { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge.issued { background-color: rgba(59, 130, 246, 0.1); color: var(--primary); }
+        .badge.maintenance { background-color: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .badge.broken { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .tag { display: inline-block; padding: 2px 8px; background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; margin-right: 4px; }
+
+        /* Alerts Section */
+        .alerts-section { background: var(--bg-surface); padding: 1.5rem; border-radius: var(--border-radius); box-shadow: var(--shadow); margin-top: 2rem; }
+        .alert-item { padding: 1rem; border-left: 4px solid var(--warning); background: rgba(245, 158, 11, 0.05); margin-bottom: 0.5rem; border-radius: 0 4px 4px 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s;}
+        .alert-item:hover { background: rgba(245, 158, 11, 0.1); }
+        .alert-item.danger { border-left-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+        .alert-item.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+        /* Details Card */
+        .details-card { background: var(--bg-surface); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 2rem; margin-bottom: 2rem; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .details-group { margin-bottom: 1rem; }
+        .details-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem; }
+        .details-val { font-size: 1rem; font-weight: 500; }
+        .map-container { width: 100%; height: 250px; background: var(--bg-body); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); margin-top: 1rem; }
+        .map-container iframe { width: 100%; height: 100%; border: none; }
+        
+        .history-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
+        .history-section h3 { margin-bottom: 1rem; font-size: 1.2rem; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: var(--bg-surface); padding: 2rem; border-radius: var(--border-radius); width: 90%; max-width: 650px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position: relative; }
+        .modal-header { font-size: 1.25rem; font-weight: bold; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;}
+        .modal-close { font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: span 2; }
+        label { margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
+
+        /* Print Styles */
+        #print-area { display: none; background: white; color: black; padding: 20mm; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+        }
+
+        /* Responsive Mobile Friendly */
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .sidebar { position: fixed; top: 0; left: -260px; height: 100vh; transition: 0.3s; }
+            .sidebar.open { left: 0; }
+            .hamburger-menu { display: block; }
+            .topbar { padding: 1rem; flex-wrap: wrap; gap: 1rem; }
+            .search-bar { width: 100%; order: 3; }
+            .content-area { padding: 1rem; }
+            .form-grid, .details-grid { grid-template-columns: 1fr; }
+            .form-group.full-width { grid-column: span 1; }
+            #equipment-details-actions { flex-direction: column; width: 100%; }
+            #equipment-details-actions .btn { width: 100%; padding: 1rem; font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOADER EKRANU -->
+    <div id="app-loader">
+        <div class="spinner"></div>
+        <h2 style="color:var(--text-main);">Łączenie z bazą chmurową...</h2>
+        <p style="color:var(--text-muted); margin-top: 0.5rem;">GearGrid by PK</p>
+    </div>
+
+    <div class="app-container" style="display:none;" id="app-wrapper">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-name">
+                    <span class="brand-main">GearGrid</span>
+                    <span class="brand-sub">by PK</span>
+                </div>
+                <button class="hamburger-menu" id="close-sidebar">✕</button>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-target="dashboard">📊 Dashboard</li>
+                <li class="nav-item" data-target="equipment">🧰 Baza Sprzętu</li>
+                <li class="nav-item" data-target="transactions">📤 Wydania / Zwroty</li>
+                <li class="nav-item" data-target="employees">👷 Pracownicy</li>
+                <li class="nav-item" data-target="locations">📍 Lokalizacje</li>
+                <li class="nav-item" data-target="maintenance">🔧 Serwis</li>
+                <li class="nav-item" data-target="reports">📈 Raporty & System</li>
+            </ul>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- TOPBAR -->
+            <header class="topbar">
+                <div style="display:flex; align-items:center; gap: 1rem;">
+                    <button class="hamburger-menu" id="open-sidebar" style="color:var(--text-main);">☰</button>
+                    <div class="search-bar">
+                        <input type="text" id="global-search" placeholder="Szukaj sprzętu..." autocomplete="off">
+                        <div class="search-results" id="search-results"></div>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <div class="sync-status" id="sync-indicator">
+                        <div class="sync-dot"></div> <span id="sync-text">Zsynchronizowano</span>
+                    </div>
+                    <button class="btn-theme" id="theme-toggle" title="Zmień motyw">🌙</button>
+                    <div style="font-weight: 500; display:none;">Admin</div>
+                </div>
+            </header>
+
+            <!-- CONTENT AREA -->
+            <div class="content-area">
+                
+                <!-- VIEW: DASHBOARD -->
+                <section id="dashboard" class="view-section active">
+                    <div class="page-header">
+                        <h1 class="page-title">Dashboard</h1>
+                    </div>
+                    <div class="dashboard-grid" id="dashboard-stats">
+                        <!-- Rendered via JS -->
+                    </div>
+                    
+                    <div class="alerts-section">
+                        <h2>🔔 Alerty Systemowe</h2>
+                        <div id="alerts-container" style="margin-top: 1rem;">
+                            <!-- Rendered via JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: EQUIPMENT -->
+                <section id="equipment" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Baza Sprzętu</h1>
+                        <button class="btn btn-primary" onclick="UI.openModal('modal-equipment'); document.getElementById('form-equipment').reset(); document.getElementById('eq-id').value='';">+ Dodaj Sprzęt</button>
+                    </div>
+                    <div style="display:flex; gap:1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                        <select id="filter-category" onchange="Render.equipmentTable()" style="max-width:200px;"><option value="all">Wszystkie kategorie</option><option value="pojazdy">Pojazdy</option><option value="narzedzia">Narzędzia</option><option value="sprzet">Sprzęt Ciężki</option></select>
+                        <select id="filter-status" onchange="Render.equipmentTable()" style="max-width:200px;"><option value="all">Wszystkie statusy</option><option value="available">Dostępny</option><option value="issued">Wydany</option><option value="maintenance">W Serwisie</option></select>
+                        <select id="filter-location" onchange="Render.equipmentTable()" style="max-width:200px;"><option value="all">Wszystkie lokalizacje</option></select>
+                    </div>
+                    <div class="table-container">
+                        <table id="equipment-table">
+                            <thead>
+                                <tr>
+                                    <th>Nazwa</th>
+                                    <th>Kategoria</th>
+                                    <th>Numer inwentaryzacyjny</th>
+                                    <th>Status</th>
+                                    <th>Lokalizacja</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- Rendered via JS --></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW: EQUIPMENT DETAILS -->
+                <section id="equipment-details" class="view-section">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <button class="btn-secondary btn-small" onclick="UI.navigate('equipment')" style="border-radius:50%; width:32px; height:32px; padding:0;">←</button> 
+                            Karta Sprzętu
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;" id="equipment-details-actions">
+                            <!-- Quick actions rendered here -->
+                        </div>
+                    </div>
+                    <div class="details-card" id="equipment-details-content">
+                        <!-- Rendered via JS -->
+                    </div>
+                </section>
+
+                <!-- VIEW: TRANSACTIONS -->
+                <section id="transactions" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Wydania i Zwroty (Dokumenty)</h1>
+                        <div style="display:flex; gap: 0.5rem;">
+                            <button class="btn btn-primary" onclick="UI.openModal('modal-issue')">📤 Wydaj Sprzęt</button>
+                            <button class="btn btn-secondary" onclick="UI.openModal('modal-return')">📥 Zwróć / Przenieś</button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>ID Operacji</th>
+                                    <th>Data</th>
+                                    <th>Typ</th>
+                                    <th>Sprzęt</th>
+                                    <th>Pracownik</th>
+                                    <th>Lokalizacja</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- Rendered via JS --></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW: EMPLOYEES -->
+                <section id="employees" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Pracownicy</h1>
+                        <button class="btn btn-primary" onclick="UI.openModal('modal-employee'); document.getElementById('form-employee').reset(); document.getElementById('emp-id').value='';">+ Dodaj Pracownika</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="employees-table">
+                            <thead>
+                                <tr>
+                                    <th>Imię i Nazwisko</th>
+                                    <th>Stanowisko</th>
+                                    <th>Telefon</th>
+                                    <th>Wydany sprzęt</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- Rendered via JS --></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW: EMPLOYEE DETAILS -->
+                <section id="employee-details" class="view-section">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <button class="btn-secondary btn-small" onclick="UI.navigate('employees')" style="border-radius:50%; width:32px; height:32px; padding:0;">←</button> 
+                            Karta Pracownika
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;" id="employee-details-actions">
+                           <button class="btn btn-primary" id="btn-edit-employee">Edytuj dane</button>
+                        </div>
+                    </div>
+                    <div class="details-card" id="employee-details-content">
+                        <!-- Rendered via JS -->
+                    </div>
+                </section>
+
+                <!-- VIEW: LOCATIONS -->
+                <section id="locations" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Lokalizacje / Budowy</h1>
+                        <button class="btn btn-primary" onclick="UI.openModal('modal-location'); document.getElementById('form-location').reset(); document.getElementById('loc-id').value='';">+ Dodaj Lokalizację</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="locations-table">
+                            <thead>
+                                <tr>
+                                    <th>Nazwa</th>
+                                    <th>Typ</th>
+                                    <th>Adres</th>
+                                    <th>Ilość Sprzętu</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- Rendered via JS --></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW: LOCATION DETAILS -->
+                <section id="location-details" class="view-section">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <button class="btn-secondary btn-small" onclick="UI.navigate('locations')" style="border-radius:50%; width:32px; height:32px; padding:0;">←</button> 
+                            Karta Lokalizacji
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;" id="location-details-actions">
+                            <button class="btn btn-primary" id="btn-edit-location">Edytuj dane</button>
+                        </div>
+                    </div>
+                    <div class="details-card" id="location-details-content">
+                        <!-- Rendered via JS -->
+                    </div>
+                </section>
+
+                <!-- VIEW: MAINTENANCE -->
+                <section id="maintenance" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Serwis i Naprawy</h1>
+                        <button class="btn btn-primary" onclick="alert('Moduł zgłaszania napraw zostanie rozbudowany w kolejnej aktualizacji.')">+ Zgłoś Naprawę</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="maintenance-table">
+                            <thead>
+                                <tr><th>Data Zgłoszenia</th><th>Sprzęt</th><th>Opis usterki</th><th>Wykonawca</th><th>Status</th></tr>
+                            </thead>
+                            <tbody><tr><td colspan="5" style="text-align:center;">Brak aktywnych zgłoszeń serwisowych</td></tr></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VIEW: REPORTS & SYSTEM -->
+                <section id="reports" class="view-section">
+                    <div class="page-header">
+                        <h1 class="page-title">Raporty i Ustawienia Systemu</h1>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="stat-card" style="cursor:default; transform:none; box-shadow:var(--shadow);">
+                            <h3>Eksport Danych (Raporty)</h3>
+                            <button class="btn btn-secondary" onclick="Reports.exportCSV()" style="margin-top:1rem; width:100%;">Pobierz raport CSV (Sprzęt)</button>
+                        </div>
+                        <div class="stat-card" style="cursor:default; transform:none; box-shadow:var(--shadow);">
+                            <h3>Backup Systemu (Lokalny)</h3>
+                            <button class="btn btn-primary" onclick="Backup.exportJSON()" style="margin-top:1rem; width:100%; margin-bottom: 0.5rem;">Pobierz Backup (JSON)</button>
+                            <input type="file" id="import-file" style="display:none;" onchange="Backup.importJSON(event)">
+                            <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()" style="width:100%;">Przywróć z pliku</button>
+                        </div>
+                        <div class="stat-card danger" style="cursor:default; transform:none; box-shadow:var(--shadow);">
+                            <h3>Reset Systemu</h3>
+                            <button class="btn btn-danger" onclick="if(confirm('Na pewno usunąć wszystkie dane z tego urządzenia? Może to nadpisać bazę chmurową przy kolejnej synchronizacji.')) { localStorage.clear(); location.reload(); }" style="margin-top:1rem; width:100%;">Wyczyść Bazę Danych</button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================================================
+         MODALS
+         ========================================================================== -->
+    
+    <!-- Modal: Add/Edit Equipment -->
+    <div class="modal-overlay" id="modal-equipment">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="equipment-modal-title">Formularz Sprzętu</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-equipment')">✕</span>
+            </div>
+            <form id="form-equipment" onsubmit="Managers.Equipment.save(event)">
+                <input type="hidden" id="eq-id" name="id">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label>Nazwa sprzętu *</label>
+                        <input type="text" name="name" id="eq-f-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kategoria *</label>
+                        <select name="category" id="eq-f-category" required>
+                            <option value="narzedzia">Narzędzia</option>
+                            <option value="pojazdy">Pojazdy</option>
+                            <option value="sprzet">Sprzęt Ciężki</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select name="status" id="eq-f-status" required>
+                            <option value="available">Dostępny</option>
+                            <option value="issued">Wydany</option>
+                            <option value="maintenance">W serwisie</option>
+                            <option value="broken">Uszkodzony</option>
+                            <option value="retired">Wycofany</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Producent</label>
+                        <input type="text" name="manufacturer" id="eq-f-manufacturer">
+                    </div>
+                    <div class="form-group">
+                        <label>Model</label>
+                        <input type="text" name="model" id="eq-f-model">
+                    </div>
+                    <div class="form-group">
+                        <label>Numer inwentaryzacyjny</label>
+                        <input type="text" name="inventoryNumber" id="eq-f-inv">
+                    </div>
+                    <div class="form-group">
+                        <label>Nr Seryjny (VIN itp.)</label>
+                        <input type="text" name="serialNumber" id="eq-f-sn">
+                    </div>
+                    <div class="form-group">
+                        <label>Lokalizacja domyślna *</label>
+                        <select name="locationId" id="eq-location-select" required></select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Tagi (po przecinku)</label>
+                        <input type="text" name="tags" id="eq-f-tags" placeholder="np. pilne, zestaw1">
+                    </div>
+                    
+                    <div class="form-group full-width"><hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;"></div>
+                    <h3 class="form-group full-width" style="margin-top:0;">Terminy i Daty</h3>
+                    
+                    <div class="form-group">
+                        <label>Data zakupu</label>
+                        <input type="date" name="purchaseDate" id="eq-f-purchase">
+                    </div>
+                    <div class="form-group">
+                        <label>Ważność ubezpieczenia</label>
+                        <input type="date" name="insuranceExpiry" id="eq-f-ins">
+                    </div>
+                    <div class="form-group">
+                        <label>Przegląd techniczny</label>
+                        <input type="date" name="techInspectionDate" id="eq-f-tech">
+                    </div>
+                    <div class="form-group">
+                        <label>Kalibracja / UDT</label>
+                        <input type="date" name="calibrationDate" id="eq-f-cal">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notatki</label>
+                        <textarea name="notes" id="eq-f-notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="UI.closeModal('modal-equipment')">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Issue Equipment -->
+    <div class="modal-overlay" id="modal-issue">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Wydaj Sprzęt</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-issue')">✕</span>
+            </div>
+            <form id="form-issue" onsubmit="Managers.Transaction.issue(event)">
+                <div class="form-group">
+                    <label>Sprzęt (tylko dostępne) *</label>
+                    <select name="equipmentId" id="issue-eq-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Pracownik pobierający *</label>
+                    <select name="employeeId" id="issue-emp-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Lokalizacja docelowa *</label>
+                    <select name="locationId" id="issue-loc-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Planowana data zwrotu</label>
+                    <input type="date" name="plannedReturnDate">
+                </div>
+                <div class="form-group">
+                    <label>Uwagi do wydania</label>
+                    <textarea name="notes" rows="2"></textarea>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="UI.closeModal('modal-issue')">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zatwierdź Wydanie</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Return Equipment -->
+    <div class="modal-overlay" id="modal-return">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Zwróć / Przenieś Sprzęt</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-return')">✕</span>
+            </div>
+            <form id="form-return" onsubmit="Managers.Transaction.returnEq(event)">
+                <div class="form-group">
+                    <label>Sprzęt do zwrotu (wydany) *</label>
+                    <select name="equipmentId" id="return-eq-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Zwraca (Pracownik) *</label>
+                    <select name="returnEmployeeId" id="return-emp-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Zwracane do lokalizacji *</label>
+                    <select name="locationId" id="return-loc-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Stan przy zwrocie *</label>
+                    <select name="condition" required>
+                        <option value="good">Dobry (Sprawny)</option>
+                        <option value="damaged">Uszkodzony</option>
+                        <option value="lost">Zagubiony</option>
+                    </select>
+                </div>
+                <div class="form-group full-width">
+                    <label>Uwagi</label>
+                    <textarea name="notes" rows="2"></textarea>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right; grid-column: span 2;">
+                    <button type="button" class="btn btn-secondary" onclick="UI.closeModal('modal-return')">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zatwierdź Zwrot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Employee -->
+    <div class="modal-overlay" id="modal-employee">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Formularz Pracownika</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-employee')">✕</span>
+            </div>
+            <form id="form-employee" onsubmit="Managers.Employee.save(event)">
+                <input type="hidden" id="emp-id" name="id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Imię *</label>
+                        <input type="text" name="firstName" id="emp-f-first" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nazwisko *</label>
+                        <input type="text" name="lastName" id="emp-f-last" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stanowisko</label>
+                        <input type="text" name="position" id="emp-f-pos">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefon</label>
+                        <input type="text" name="phone" id="emp-f-phone">
+                    </div>
+                    <div class="form-group">
+                        <label>Data rozpoczęcia pracy</label>
+                        <input type="date" name="startDate" id="emp-f-start">
+                    </div>
+                    <div class="form-group">
+                        <label>Umowa do</label>
+                        <input type="date" name="contractEnd" id="emp-f-end">
+                        <label style="display:flex; align-items:center; margin-top:0.5rem; color:var(--text-main);">
+                            <input type="checkbox" name="indefiniteContract" id="emp-f-indefinite" onchange="document.getElementById('emp-f-end').disabled = this.checked; if(this.checked) document.getElementById('emp-f-end').value='';">
+                            Czas nieokreślony
+                        </label>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notatki ogólne</label>
+                        <textarea name="notes" id="emp-f-notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="UI.closeModal('modal-employee')">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Location -->
+    <div class="modal-overlay" id="modal-location">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Formularz Lokalizacji</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-location')">✕</span>
+            </div>
+            <form id="form-location" onsubmit="Managers.Location.save(event)">
+                <input type="hidden" id="loc-id" name="id">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nazwa *</label>
+                        <input type="text" name="name" id="loc-f-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Typ</label>
+                        <select name="type" id="loc-f-type">
+                            <option value="magazyn">Magazyn</option>
+                            <option value="budowa">Budowa</option>
+                            <option value="warsztat">Warsztat</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Adres dokładny (lub link Google Maps)</label>
+                        <input type="text" name="address" id="loc-f-address" placeholder="np. ul. Klonowa 15, Poznań">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notatki</label>
+                        <textarea name="notes" id="loc-f-notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="UI.closeModal('modal-location')">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: View QR Code -->
+    <div class="modal-overlay" id="modal-qr">
+        <div class="modal-content" style="text-align: center; max-width: 400px;">
+            <div class="modal-header">
+                <span>Kod QR Sprzętu</span>
+                <span class="modal-close" onclick="UI.closeModal('modal-qr')">✕</span>
+            </div>
+            <h3 id="qr-eq-name" style="margin-bottom: 0.5rem;"></h3>
+            <p id="qr-eq-id" style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; font-family: monospace;"></p>
+            <div style="background: white; padding: 1rem; display: inline-block; border-radius: 8px;" id="qr-container">
+                <!-- QR Code Img will be injected here -->
+            </div>
+            <p style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted);">Zeskanuj telefonem, aby otworzyć kartę sprzętu w przeglądarce.</p>
+            <div style="margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="UI.closeModal('modal-qr')">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Print Area for Protocols -->
+    <div id="print-area"></div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // ==========================================
+        // ADRES API Z GOOGLE APPS SCRIPT
+        // ==========================================
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyJfwWCCcg8q1Xf2g9KoycitZdgtE0qUBrR5Pr-vRyNNCr_GlcWAc5l08mVjutRf2if/exec';
+
+        /**
+         * 1. CLOUD SYNC MODULE (Google Sheets API)
+         */
+        const CloudAPI = {
+            async fetchAll() {
+                try {
+                    // Czasami Google Apps Script rzuca błędem CORS, jeśli skrypt nie jest skonfigurowany do zwracania odpowiednich nagłówków.
+                    // Najprostszą metodą jest pominięcie CORS, jeśli po stronie GAS mamy GET zwracający JSON.
+                    // Jeśli wystąpią problemy z CORS po stronie przeglądarki, najbezpieczniej użyć trybu 'cors' lub zrezygnować z fetch i pobrać dane używając script tagów, ale zazwyczaj tryb 'cors' z poprawnie ustawionym GAS działa.
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return await response.json();
+                } catch (error) {
+                    console.error("Cloud fetch error:", error);
+                    // Tutaj możemy zalogować dodatkowe informacje dla ułatwienia debugowania. W przypadku testowania lokalnego mogą pojawić się problemy z CORS.
+                    return null;
+                }
+            },
+            
+            async pushAll(appState) {
+                UI.setSyncStatus('syncing');
+                try {
+                    // Wysyłanie danych metodą POST używając fetch z 'no-cors' by ominąć blokadę przeglądarki
+                    // GAS domyślnie pozwala na odbieranie danych POST.
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                           'Content-Type': 'text/plain', // Omija preflight (OPTIONS)
+                        },
+                        body: JSON.stringify(appState)
+                    });
+                    // Kiedy używamy no-cors, typ odpowiedzi to 'opaque', więc nie możemy odczytać JSON-a z response.
+                    // Przyjmujemy założenie że wykonanie bez błędu rzucanego przez sieć oznacza sukces.
+                    UI.setSyncStatus('success');
+                    return true;
+                } catch (error) {
+                    console.error("Cloud push error:", error);
+                    UI.setSyncStatus('error');
+                    return false;
+                }
+            }
+        };
+
+        /**
+         * 2. STORAGE MANAGER (Hybrydowy: LocalStorage + Cloud)
+         */
+        const StorageManager = {
+            dbName: 'geargrid_db',
+            
+            async init() {
+                const localData = localStorage.getItem(this.dbName);
+                if (localData) AppState = JSON.parse(localData);
+                else this.initEmptyState();
+
+                if(GAS_API_URL !== 'TUTAJ_WKLEJ_SWOJ_LINK_Z_GOOGLE_APPS_SCRIPT') {
+                    const cloudData = await CloudAPI.fetchAll();
+                    if(cloudData && cloudData.equipment) {
+                        // Merge or replace AppState
+                        AppState = cloudData;
+                        if (!AppState.dismissedAlerts) AppState.dismissedAlerts = [];
+                        localStorage.setItem(this.dbName, JSON.stringify(AppState));
+                    }
+                }
+            },
+
+            initEmptyState() {
+                AppState = { equipment: [], employees: [], locations: [], transactions: [], maintenance: [], dismissedAlerts: [], settings: {} };
+            },
+            
+            async saveData() {
+                if(!AppState.settings) AppState.settings = {};
+                AppState.settings.lastUpdate = new Date().toISOString();
+                
+                // Zapisz lokalnie natychmiast (Optimistic UI)
+                localStorage.setItem(this.dbName, JSON.stringify(AppState));
+                
+                // Wyślij w tle do chmury
+                if(GAS_API_URL !== 'TUTAJ_WKLEJ_SWOJ_LINK_Z_GOOGLE_APPS_SCRIPT') {
+                    await CloudAPI.pushAll(AppState);
+                }
+            }
+        };
+
+        let AppState = {};
+
+        /**
+         * 3. QR CODE MANAGER (API)
+         */
+        const QRCodeManager = {
+            generate(id, name) {
+                const baseUrl = window.location.origin + window.location.pathname;
+                const qrUrl = `${baseUrl}?equipment=${id}`;
+                const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}&margin=10`;
+                
+                document.getElementById('qr-eq-name').innerText = name;
+                document.getElementById('qr-eq-id').innerText = id;
+                document.getElementById('qr-container').innerHTML = `<img src="${imgUrl}" alt="QR Code" style="display:block;">`;
+                
+                UI.openModal('modal-qr');
+            }
+        };
+
+        /**
+         * 4. DATA MANAGERS (Pełne z edycją + Async Cloud Save)
+         */
+        const Managers = {
+            Equipment: {
+                async save(e) {
+                    e.preventDefault();
+                    const rawData = Object.fromEntries(new FormData(e.target).entries());
+                    const id = rawData.id || 'EQ-' + Date.now().toString().slice(-6);
+                    const tagsArray = rawData.tags ? rawData.tags.split(',').map(t => t.trim()).filter(t=>t) : [];
+                    const newEq = { ...rawData, id, tags: tagsArray };
+                    
+                    const idx = AppState.equipment.findIndex(eq => eq.id === rawData.id);
+                    if (idx > -1) AppState.equipment[idx] = newEq;
+                    else AppState.equipment.push(newEq);
+                    
+                    UI.closeModal('modal-equipment');
+                    Render.all();
+                    if(document.getElementById('equipment-details').classList.contains('active')) UI.showEquipmentDetails(id);
+                    await StorageManager.saveData();
+                },
+                async delete(id) {
+                    if(!confirm('Czy na pewno chcesz usunąć ten sprzęt z bazy?')) return;
+                    AppState.equipment = AppState.equipment.filter(eq => eq.id !== id);
+                    UI.navigate('equipment');
+                    Render.all();
+                    await StorageManager.saveData();
+                },
+                edit(id) {
+                    const eq = AppState.equipment.find(e => e.id === id);
+                    if(!eq) return;
+                    document.getElementById('eq-id').value = eq.id;
+                    document.getElementById('eq-f-name').value = eq.name || '';
+                    document.getElementById('eq-f-category').value = eq.category || 'narzedzia';
+                    document.getElementById('eq-f-status').value = eq.status || 'available';
+                    document.getElementById('eq-f-manufacturer').value = eq.manufacturer || '';
+                    document.getElementById('eq-f-model').value = eq.model || '';
+                    document.getElementById('eq-f-inv').value = eq.inventoryNumber || '';
+                    document.getElementById('eq-f-sn').value = eq.serialNumber || '';
+                    document.getElementById('eq-location-select').value = eq.locationId || '';
+                    document.getElementById('eq-f-tags').value = (eq.tags || []).join(', ');
+                    document.getElementById('eq-f-purchase').value = eq.purchaseDate || '';
+                    document.getElementById('eq-f-ins').value = eq.insuranceExpiry || '';
+                    document.getElementById('eq-f-tech').value = eq.techInspectionDate || '';
+                    document.getElementById('eq-f-cal').value = eq.calibrationDate || '';
+                    document.getElementById('eq-f-notes').value = eq.notes || '';
+                    UI.openModal('modal-equipment');
+                }
+            },
+            Transaction: {
+                async issue(e) {
+                    e.preventDefault();
+                    const data = Object.fromEntries(new FormData(e.target).entries());
+                    const txId = 'TX-' + Math.floor(Math.random() * 1000) + Date.now().toString().slice(-4);
+                    const tx = { id: txId, type: 'issue', date: new Date().toISOString(), ...data };
+                    
+                    AppState.transactions.push(tx);
+                    const eq = AppState.equipment.find(e => e.id === data.equipmentId);
+                    if(eq) { eq.status = 'issued'; eq.locationId = data.locationId; }
+                    
+                    UI.closeModal('modal-issue');
+                    e.target.reset();
+                    Render.all();
+                    if(document.getElementById('equipment-details').classList.contains('active')) UI.showEquipmentDetails(data.equipmentId);
+                    Reports.printProtocol(tx);
+                    await StorageManager.saveData();
+                },
+                async returnEq(e) {
+                    e.preventDefault();
+                    const data = Object.fromEntries(new FormData(e.target).entries());
+                    const txId = 'TX-' + Math.floor(Math.random() * 1000) + Date.now().toString().slice(-4);
+                    const tx = { id: txId, type: 'return', date: new Date().toISOString(), ...data };
+                    
+                    AppState.transactions.push(tx);
+                    const eq = AppState.equipment.find(e => e.id === data.equipmentId);
+                    if(eq) {
+                        eq.status = data.condition === 'good' ? 'available' : (data.condition === 'damaged' ? 'broken' : 'retired');
+                        eq.locationId = data.locationId;
+                    }
+                    
+                    UI.closeModal('modal-return');
+                    e.target.reset();
+                    Render.all();
+                    if(document.getElementById('equipment-details').classList.contains('active')) UI.showEquipmentDetails(data.equipmentId);
+                    await StorageManager.saveData();
+                }
+            },
+            Employee: {
+                async save(e) { 
+                    e.preventDefault(); 
+                    const rawData = Object.fromEntries(new FormData(e.target).entries()); 
+                    const id = rawData.id || 'EMP-'+Date.now(); 
+                    const indefinite = document.getElementById('emp-f-indefinite').checked;
+                    const newEmp = { ...rawData, id, indefiniteContract: indefinite };
+                    if(indefinite) newEmp.contractEnd = '';
+
+                    const idx = AppState.employees.findIndex(x=>x.id===rawData.id); 
+                    if(idx>-1) AppState.employees[idx]=newEmp; 
+                    else AppState.employees.push(newEmp); 
+                    
+                    UI.closeModal('modal-employee'); 
+                    Render.all(); 
+                    if(document.getElementById('employee-details').classList.contains('active')) UI.showEmployeeDetails(id);
+                    await StorageManager.saveData(); 
+                },
+                edit(id) {
+                    const emp = AppState.employees.find(e => e.id === id);
+                    if(!emp) return;
+                    document.getElementById('emp-id').value = emp.id;
+                    document.getElementById('emp-f-first').value = emp.firstName || '';
+                    document.getElementById('emp-f-last').value = emp.lastName || '';
+                    document.getElementById('emp-f-pos').value = emp.position || '';
+                    document.getElementById('emp-f-phone').value = emp.phone || '';
+                    document.getElementById('emp-f-start').value = emp.startDate || '';
+                    document.getElementById('emp-f-end').value = emp.contractEnd || '';
+                    const chk = document.getElementById('emp-f-indefinite');
+                    chk.checked = !!emp.indefiniteContract;
+                    document.getElementById('emp-f-end').disabled = chk.checked;
+                    document.getElementById('emp-f-notes').value = emp.notes || '';
+                    UI.openModal('modal-employee');
+                }
+            },
+            Location: {
+                async save(e) { 
+                    e.preventDefault(); 
+                    const rawData = Object.fromEntries(new FormData(e.target).entries()); 
+                    const id = rawData.id || 'LOC-'+Date.now(); 
+                    const idx = AppState.locations.findIndex(x=>x.id===rawData.id); 
+                    if(idx>-1) AppState.locations[idx]={...rawData,id}; 
+                    else AppState.locations.push({...rawData,id}); 
+                    
+                    UI.closeModal('modal-location'); 
+                    Render.all(); 
+                    if(document.getElementById('location-details').classList.contains('active')) UI.showLocationDetails(id);
+                    await StorageManager.saveData(); 
+                },
+                edit(id) {
+                    const loc = AppState.locations.find(e => e.id === id);
+                    if(!loc) return;
+                    document.getElementById('loc-id').value = loc.id;
+                    document.getElementById('loc-f-name').value = loc.name || '';
+                    document.getElementById('loc-f-type').value = loc.type || 'magazyn';
+                    document.getElementById('loc-f-address').value = loc.address || '';
+                    document.getElementById('loc-f-notes').value = loc.notes || '';
+                    UI.openModal('modal-location');
+                }
+            }
+        };
+
+        /**
+         * 5. NOTIFICATION ENGINE
+         */
+        const NotificationEngine = {
+            checkAlerts() {
+                const alerts = [];
+                const today = new Date();
+                const warningDays = 14;
+                if(!AppState.dismissedAlerts) AppState.dismissedAlerts = [];
+
+                // Sprzęt
+                AppState.equipment.forEach(eq => {
+                    const checks = [
+                        { key: 'insuranceExpiry', label: 'Ubezpieczenie' },
+                        { key: 'techInspectionDate', label: 'Przegląd tech.' },
+                        { key: 'calibrationDate', label: 'Kalibracja/UDT' }
+                    ];
+
+                    checks.forEach(check => {
+                        if (eq[check.key]) {
+                            const date = new Date(eq[check.key]);
+                            const daysLeft = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            const alertId = `al_${eq.id}_${check.key}`;
+                            
+                            if(!AppState.dismissedAlerts.includes(alertId)) {
+                                if (daysLeft < 0) alerts.push({ id: alertId, type: 'danger', targetView: 'equipment', targetId: eq.id, msg: `Przeterminowane: ${check.label} dla ${eq.name} (od ${Math.abs(daysLeft)} dni)` });
+                                else if (daysLeft <= warningDays) alerts.push({ id: alertId, type: 'warning', targetView: 'equipment', targetId: eq.id, msg: `Zbliża się: ${check.label} dla ${eq.name} (za ${daysLeft} dni)` });
+                            }
+                        }
+                    });
+                });
+
+                // Pracownicy
+                AppState.employees.forEach(emp => {
+                    if (emp.contractEnd && !emp.indefiniteContract) {
+                        const date = new Date(emp.contractEnd);
+                        const daysLeft = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const alertId = `al_${emp.id}_contract`;
+                        
+                        if(!AppState.dismissedAlerts.includes(alertId)) {
+                            if (daysLeft < 0) alerts.push({ id: alertId, type: 'danger', targetView: 'employee', targetId: emp.id, msg: `Koniec umowy: ${emp.firstName} ${emp.lastName} (od ${Math.abs(daysLeft)} dni)` });
+                            else if (daysLeft <= warningDays) alerts.push({ id: alertId, type: 'warning', targetView: 'employee', targetId: emp.id, msg: `Kończy się umowa: ${emp.firstName} ${emp.lastName} (za ${daysLeft} dni)` });
+                        }
+                    }
+                });
+                return alerts;
+            },
+            async dismiss(alertId, event) {
+                event.stopPropagation();
+                if(!AppState.dismissedAlerts) AppState.dismissedAlerts = [];
+                AppState.dismissedAlerts.push(alertId);
+                Render.dashboard();
+                await StorageManager.saveData();
+            }
+        };
+
+        /**
+         * 6. REPORTING & BACKUP
+         */
+         const Reports = {
+            exportCSV() {
+                const rows = [["ID", "Nazwa", "Kategoria", "Status", "Lokalizacja", "Nr Inwentaryzacyjny"]];
+                AppState.equipment.forEach(eq => {
+                    const loc = AppState.locations.find(l=>l.id===eq.locationId);
+                    rows.push([eq.id, eq.name, eq.category, eq.status, loc?loc.name:'-', eq.inventoryNumber || '']);
+                });
+                const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri); link.setAttribute("download", "geargrid_sprzet.csv");
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            },
+            printProtocol(tx) {
+                const eq = AppState.equipment.find(e => e.id === tx.equipmentId);
+                const emp = AppState.employees.find(e => e.id === tx.employeeId);
+                const loc = AppState.locations.find(e => e.id === tx.locationId);
+                
+                const html = `
+                    <div style="font-family: sans-serif; max-width: 800px; margin: 0 auto; line-height: 1.6;">
+                        <h1 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;">Protokół Wydania Sprzętu</h1>
+                        <p style="text-align: right;">Data: <strong>${new Date(tx.date).toLocaleDateString()}</strong></p>
+                        <p><strong>ID Operacji:</strong> ${tx.id}</p>
+                        
+                        <h3>Dane Pracownika Pobierającego</h3>
+                        <p>Imię i Nazwisko: <strong>${emp ? emp.firstName + ' ' + emp.lastName : '-'}</strong><br>Stanowisko: ${emp ? emp.position : ''}</p>
+
+                        <h3>Dane Sprzętu</h3>
+                        <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
+                            <tr style="background:#eee;"><th style="border:1px solid #ccc; padding:8px;">Nazwa</th><th style="border:1px solid #ccc; padding:8px;">Nr Inwentaryzacyjny</th><th style="border:1px solid #ccc; padding:8px;">Nr Seryjny</th></tr>
+                            <tr><td style="border:1px solid #ccc; padding:8px;">${eq ? eq.name : ''}</td><td style="border:1px solid #ccc; padding:8px;">${eq && eq.inventoryNumber ? eq.inventoryNumber : '-'}</td><td style="border:1px solid #ccc; padding:8px;">${eq && eq.serialNumber ? eq.serialNumber : '-'}</td></tr>
+                        </table>
+
+                        <p style="margin-top: 20px;"><strong>Lokalizacja docelowa:</strong> ${loc ? loc.name : ''}</p>
+                        ${tx.plannedReturnDate ? `<p><strong>Planowana data zwrotu:</strong> ${tx.plannedReturnDate}</p>` : ''}
+                        
+                        <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+                            <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 5px;">Podpis Wydającego</div>
+                            <div style="text-align: center; width: 40%; border-top: 1px solid #000; padding-top: 5px;">Podpis Pobierającego</div>
+                        </div>
+                    </div>`;
+                const printArea = document.getElementById('print-area');
+                printArea.innerHTML = html; window.print();
+            }
+        };
+
+        const Backup = {
+            exportJSON() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(AppState));
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", dataStr); dlAnchorElem.setAttribute("download", `geargrid_backup_${new Date().toISOString().split('T')[0]}.json`);
+                dlAnchorElem.click();
+            },
+            async importJSON(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if(importedData.equipment && importedData.locations) {
+                            AppState = importedData;
+                            await StorageManager.saveData(); 
+                            alert('Backup wczytany i zsynchronizowany pomyślnie!'); 
+                            location.reload();
+                        } else { alert('Nieprawidłowy plik.'); }
+                    } catch(err) { alert('Błąd odczytu pliku.'); }
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        /**
+         * 7. UI RENDERER
+         */
+        const Render = {
+            all() {
+                this.dashboard();
+                this.populateDropdowns();
+                this.equipmentTable();
+                this.historyTable();
+                this.employeesTable();
+                this.locationsTable();
+            },
+            statusMap: { 'available': 'Dostępny', 'issued': 'Wydany', 'maintenance': 'Serwis', 'broken': 'Uszkodzony', 'retired': 'Wycofany' },
+            catMap: { 'narzedzia': 'Narzędzia', 'pojazdy': 'Pojazdy', 'sprzet': 'Sprzęt' },
+            getBadgeHTML(status) { return `<span class="badge ${status}">${this.statusMap[status] || status}</span>`; },
+
+            dashboard() {
+                const eq = AppState.equipment;
+                document.getElementById('dashboard-stats').innerHTML = `
+                    <div class="stat-card" onclick="UI.navigateWithFilter('equipment', {status: 'all'})"><h3>Wszystkie Urządzenia</h3><div class="value">${eq.length}</div></div>
+                    <div class="stat-card success" onclick="UI.navigateWithFilter('equipment', {status: 'available'})"><h3>Dostępne w Mag.</h3><div class="value">${eq.filter(e=>e.status==='available').length}</div></div>
+                    <div class="stat-card" onclick="UI.navigateWithFilter('equipment', {status: 'issued'})"><h3>Wydane</h3><div class="value">${eq.filter(e=>e.status==='issued').length}</div></div>
+                    <div class="stat-card warning" onclick="UI.navigateWithFilter('equipment', {status: 'maintenance'})"><h3>W Serwisie/Zepsute</h3><div class="value">${eq.filter(e=>e.status==='maintenance'||e.status==='broken').length}</div></div>
+                `;
+
+                const alerts = NotificationEngine.checkAlerts();
+                const container = document.getElementById('alerts-container');
+                if (alerts.length === 0) container.innerHTML = '<p style="color:var(--text-muted)">Brak aktywnych alertów.</p>';
+                else container.innerHTML = alerts.map(a => `
+                    <div class="alert-item ${a.type}" onclick="UI.handleAlertClick('${a.targetView}', '${a.targetId}')">
+                        <span>⚠️ ${a.msg}</span>
+                        <button class="btn-icon" onclick="NotificationEngine.dismiss('${a.id}', event)" title="Usuń alert">✕</button>
+                    </div>`).join('');
+            },
+
+            equipmentTable() {
+                const tbody = document.querySelector('#equipment-table tbody');
+                const catFilter = document.getElementById('filter-category').value;
+                const statFilter = document.getElementById('filter-status').value;
+                const locFilter = document.getElementById('filter-location').value;
+
+                let filtered = AppState.equipment;
+                if(catFilter !== 'all') filtered = filtered.filter(e => e.category === catFilter);
+                if(statFilter !== 'all') filtered = filtered.filter(e => e.status === statFilter);
+                if(locFilter !== 'all') filtered = filtered.filter(e => e.locationId === locFilter);
+
+                tbody.innerHTML = filtered.map(eq => {
+                    const loc = AppState.locations.find(l => l.id === eq.locationId);
+                    const tagsHtml = (eq.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+                    return `
+                    <tr>
+                        <td><strong>${eq.name}</strong><br>${tagsHtml}</td>
+                        <td>${this.catMap[eq.category] || eq.category}</td>
+                        <td>${eq.inventoryNumber || '-'}</td>
+                        <td>${this.getBadgeHTML(eq.status)}</td>
+                        <td>${loc ? loc.name : '-'}</td>
+                        <td>
+                            <button class="btn btn-small btn-secondary" onclick="UI.showEquipmentDetails('${eq.id}')">Szczegóły</button>
+                            <button class="btn btn-small btn-secondary" onclick="QRCodeManager.generate('${eq.id}', '${eq.name}')">QR</button>
+                        </td>
+                    </tr>`}).join('');
+            },
+
+            historyTable() {
+                const tbody = document.querySelector('#history-table tbody');
+                const sorted = [...AppState.transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+                tbody.innerHTML = sorted.map(tx => {
+                    const eq = AppState.equipment.find(e => e.id === tx.equipmentId);
+                    const emp = AppState.employees.find(e => e.id === tx.employeeId);
+                    const loc = AppState.locations.find(e => e.id === tx.locationId);
+                    const typeStr = tx.type === 'issue' ? '<span style="color:var(--primary)">Wydanie 📤</span>' : '<span style="color:var(--success)">Zwrot 📥</span>';
+                    return `
+                    <tr>
+                        <td><strong style="font-family:monospace; color:var(--text-muted);">${tx.id || '-'}</strong></td>
+                        <td>${new Date(tx.date).toLocaleString()}</td>
+                        <td>${typeStr}</td>
+                        <td>${eq ? eq.name : '-'}</td>
+                        <td>${emp ? emp.firstName + ' ' + emp.lastName : '-'}</td>
+                        <td>${loc ? loc.name : '-'}</td>
+                        <td>${tx.type === 'issue' ? `<button class="btn btn-small btn-secondary" onclick='Reports.printProtocol(${JSON.stringify(tx)})'>PDF</button>` : '-'}</td>
+                    </tr>`}).join('');
+            },
+
+            employeesTable() {
+                const tbody = document.querySelector('#employees-table tbody');
+                const today = new Date();
+                tbody.innerHTML = AppState.employees.map(emp => {
+                    const issues = AppState.transactions.filter(t => t.employeeId === emp.id && t.type === 'issue').length;
+                    const returns = AppState.transactions.filter(t => t.employeeId === emp.id && t.type === 'return').length;
+                    const currentItems = Math.max(0, issues - returns);
+                    
+                    let warning = '';
+                    if(emp.contractEnd && !emp.indefiniteContract) {
+                        const daysLeft = Math.ceil((new Date(emp.contractEnd).getTime() - today.getTime()) / 86400000);
+                        if(daysLeft <= 14) warning = `<span title="Kończąca się umowa!" style="color:var(--danger); margin-left:5px; font-weight:bold;">❗</span>`;
+                    }
+                    
+                    return `
+                    <tr style="cursor:pointer;" onclick="UI.showEmployeeDetails('${emp.id}')">
+                        <td><strong>${emp.firstName} ${emp.lastName}</strong> ${warning}</td>
+                        <td>${emp.position || '-'}</td>
+                        <td>${emp.phone || '-'}</td>
+                        <td><span class="badge issued">${currentItems} szt.</span></td>
+                        <td><button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); UI.showEmployeeDetails('${emp.id}')">Szczegóły</button></td>
+                    </tr>`}).join('');
+            },
+
+            locationsTable() {
+                const tbody = document.querySelector('#locations-table tbody');
+                tbody.innerHTML = AppState.locations.map(loc => {
+                    const count = AppState.equipment.filter(e => e.locationId === loc.id).length;
+                    return `
+                    <tr style="cursor:pointer;" onclick="UI.showLocationDetails('${loc.id}')">
+                        <td><strong>${loc.name}</strong></td>
+                        <td><span class="badge" style="background:var(--bg-body); color:var(--text-main);">${loc.type.toUpperCase()}</span></td>
+                        <td>${loc.address || '-'}</td>
+                        <td>${count} szt.</td>
+                        <td><button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); UI.showLocationDetails('${loc.id}')">Szczegóły</button></td>
+                    </tr>`}).join('');
+            },
+
+            populateDropdowns() {
+                const locOptions = AppState.locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+                document.getElementById('eq-location-select').innerHTML = locOptions;
+                document.getElementById('issue-loc-select').innerHTML = locOptions;
+                document.getElementById('return-loc-select').innerHTML = locOptions;
+                document.getElementById('filter-location').innerHTML = '<option value="all">Wszystkie lokalizacje</option>' + locOptions;
+
+                const empOptions = AppState.employees.map(e => `<option value="${e.id}">${e.firstName} ${e.lastName}</option>`).join('');
+                document.getElementById('issue-emp-select').innerHTML = empOptions;
+                document.getElementById('return-emp-select').innerHTML = empOptions;
+
+                const availableEq = AppState.equipment.filter(e => e.status === 'available');
+                document.getElementById('issue-eq-select').innerHTML = availableEq.map(e => `<option value="${e.id}">${e.name} (${e.inventoryNumber||''})</option>`).join('');
+
+                const issuedEq = AppState.equipment.filter(e => e.status === 'issued');
+                document.getElementById('return-eq-select').innerHTML = issuedEq.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+            }
+        };
+
+        const UI = {
+            init() {
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        this.navigate(e.currentTarget.getAttribute('data-target'));
+                        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                        e.currentTarget.classList.add('active');
+                        document.getElementById('sidebar').classList.remove('open');
+                    });
+                });
+                
+                document.getElementById('open-sidebar').addEventListener('click', () => document.getElementById('sidebar').classList.add('open'));
+                document.getElementById('close-sidebar').addEventListener('click', () => document.getElementById('sidebar').classList.remove('open'));
+                document.getElementById('theme-toggle').addEventListener('click', () => {
+                    const html = document.documentElement; html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+                });
+
+                // Global Search / Barcode Scanner input
+                const searchInput = document.getElementById('global-search');
+                const searchResults = document.getElementById('search-results');
+                searchInput.addEventListener('input', (e) => {
+                    const val = e.target.value.toLowerCase();
+                    if(val.length < 2) { searchResults.classList.remove('active'); return; }
+                    
+                    const exactMatch = AppState.equipment.find(eq => eq.id.toLowerCase() === val || (eq.inventoryNumber && eq.inventoryNumber.toLowerCase() === val));
+                    if(exactMatch && val.length > 5) {
+                        UI.showEquipmentDetails(exactMatch.id);
+                        searchInput.value = ''; searchResults.classList.remove('active'); return;
+                    }
+
+                    const res = AppState.equipment.filter(eq => eq.name.toLowerCase().includes(val) || eq.id.toLowerCase().includes(val) || (eq.inventoryNumber && eq.inventoryNumber.toLowerCase().includes(val)));
+                    if(res.length > 0) {
+                        searchResults.innerHTML = res.map(eq => `<div class="search-result-item" onclick="UI.showEquipmentDetails('${eq.id}'); document.getElementById('global-search').value=''; document.getElementById('search-results').classList.remove('active');">${eq.name} <span class="badge ${eq.status}">${Render.statusMap[eq.status]}</span></div>`).join('');
+                        searchResults.classList.add('active');
+                    } else searchResults.innerHTML = '<div class="search-result-item">Brak wyników</div>';
+                });
+                document.addEventListener('click', (e) => { if(!e.target.closest('.search-bar')) searchResults.classList.remove('active'); });
+
+                document.getElementById('return-eq-select').addEventListener('change', (e) => {
+                    const tx = [...AppState.transactions].filter(t => t.equipmentId === e.target.value && t.type === 'issue').pop();
+                    if(tx) document.getElementById('return-emp-select').value = tx.employeeId;
+                });
+
+                // Deep Linking URL params
+                const urlParams = new URLSearchParams(window.location.search);
+                const equipmentIdFromUrl = urlParams.get('equipment');
+                if (equipmentIdFromUrl) {
+                    setTimeout(() => { this.showEquipmentDetails(equipmentIdFromUrl); }, 100);
+                }
+            },
+
+            navigate(viewId) {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+                const target = document.getElementById(viewId);
+                if(target) target.classList.add('active');
+                if(viewId === 'dashboard') Render.dashboard();
+            },
+
+            navigateWithFilter(viewId, filters) {
+                if(filters.status) document.getElementById('filter-status').value = filters.status;
+                if(filters.category) document.getElementById('filter-category').value = filters.category;
+                this.navigate(viewId);
+                Render.equipmentTable();
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.querySelector(`.nav-item[data-target="${viewId}"]`).classList.add('active');
+            },
+            
+            handleAlertClick(view, id) {
+                if(view === 'equipment') this.showEquipmentDetails(id);
+                if(view === 'employee') this.showEmployeeDetails(id);
+            },
+
+            setSyncStatus(status) {
+                const dot = document.querySelector('.sync-dot');
+                const text = document.getElementById('sync-text');
+                dot.className = 'sync-dot';
+                if(status === 'syncing') { dot.classList.add('syncing'); text.innerText = 'Zapisywanie...'; }
+                if(status === 'success') { text.innerText = 'Zsynchronizowano chmurę'; }
+                if(status === 'error') { dot.classList.add('error'); text.innerText = 'Błąd chmury (offline)'; }
+            },
+
+            openModal(id) { document.getElementById(id).classList.add('active'); },
+            closeModal(id) { document.getElementById(id).classList.remove('active'); },
+            
+            // QUICK ACTIONS Mobile
+            quickIssue(id) {
+                document.getElementById('form-issue').reset();
+                this.openModal('modal-issue');
+                setTimeout(() => { document.getElementById('issue-eq-select').value = id; }, 50);
+            },
+            quickReturn(id) {
+                document.getElementById('form-return').reset();
+                this.openModal('modal-return');
+                setTimeout(() => {
+                    document.getElementById('return-eq-select').value = id;
+                    const tx = [...AppState.transactions].filter(t => t.equipmentId === id && t.type === 'issue').pop();
+                    if(tx) document.getElementById('return-emp-select').value = tx.employeeId;
+                }, 50);
+            },
+
+            // --- DETAILS VIEWS (FULL V2 + MOBILE QUICK ACTIONS) ---
+            showEquipmentDetails(id) {
+                const eq = AppState.equipment.find(e => e.id === id);
+                if(!eq) { alert("Nie znaleziono sprzętu w bazie!"); this.navigate('dashboard'); return; }
+                const loc = AppState.locations.find(l => l.id === eq.locationId);
+                
+                let quickActionHtml = '';
+                if(eq.status === 'available') {
+                    quickActionHtml = `<button class="btn btn-primary" onclick="UI.quickIssue('${eq.id}')">📤 WYDAJ SPRZĘT</button>`;
+                } else if(eq.status === 'issued') {
+                    quickActionHtml = `<button class="btn btn-secondary" onclick="UI.quickReturn('${eq.id}')">📥 ZWRÓĆ DO MAGAZYNU</button>`;
+                }
+                document.getElementById('equipment-details-actions').innerHTML = quickActionHtml + `<button class="btn btn-secondary" id="btn-edit-equipment">Edytuj dane</button>`;
+                
+                let currentlyWith = '-';
+                if(eq.status === 'issued') {
+                    const lastIssue = [...AppState.transactions].filter(t => t.equipmentId === eq.id && t.type === 'issue').pop();
+                    if(lastIssue) {
+                        const emp = AppState.employees.find(e => e.id === lastIssue.employeeId);
+                        currentlyWith = emp ? `<span style="color:var(--primary); font-weight:bold;">${emp.firstName} ${emp.lastName}</span>` : 'Nieznany pracownik';
+                    }
+                }
+
+                const eqHistory = [...AppState.transactions].filter(t => t.equipmentId === eq.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+                const historyHtml = eqHistory.length === 0 ? '<tr><td colspan="4" style="text-align:center;">Brak historii dla tego urządzenia.</td></tr>' : eqHistory.map(tx => {
+                    const emp = AppState.employees.find(e => e.id === tx.employeeId);
+                    const txLoc = AppState.locations.find(l => l.id === tx.locationId);
+                    const typeStr = tx.type === 'issue' ? '<span style="color:var(--primary)">Wydanie 📤</span>' : '<span style="color:var(--success)">Zwrot 📥</span>';
+                    return `<tr><td>${new Date(tx.date).toLocaleDateString()}</td><td>${typeStr}</td><td>${emp ? emp.firstName + ' ' + emp.lastName : '-'}</td><td>${txLoc ? txLoc.name : '-'}</td></tr>`;
+                }).join('');
+
+                document.getElementById('equipment-details-content').innerHTML = `
+                    <h2 style="margin-bottom: 0.5rem; display:flex; align-items:center; flex-wrap:wrap; gap:1rem;">
+                        ${eq.name} ${Render.getBadgeHTML(eq.status)}
+                    </h2>
+                    <p style="color:var(--text-muted); margin-bottom: 2rem;">ID/Nr Inwentarzowy: <strong>${eq.inventoryNumber || eq.id}</strong> | Wypożyczone u: ${currentlyWith}</p>
+                    
+                    <div class="details-grid">
+                        <div>
+                            <div class="details-group"><div class="details-label">Kategoria</div><div class="details-val">${Render.catMap[eq.category]||eq.category}</div></div>
+                            <div class="details-group"><div class="details-label">Producent / Model</div><div class="details-val">${eq.manufacturer||'-'} / ${eq.model||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Numer Seryjny</div><div class="details-val">${eq.serialNumber||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Obecna Lokalizacja</div><div class="details-val">${loc?loc.name:'Brak'}</div></div>
+                            <div class="details-group"><div class="details-label">Tagi</div><div class="details-val">${(eq.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('') || '-'}</div></div>
+                        </div>
+                        <div>
+                            <div class="details-group"><div class="details-label">Data zakupu</div><div class="details-val">${eq.purchaseDate||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Ubezpieczenie do</div><div class="details-val">${eq.insuranceExpiry||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Przegląd techniczny</div><div class="details-val">${eq.techInspectionDate||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Kalibracja / UDT</div><div class="details-val">${eq.calibrationDate||'-'}</div></div>
+                        </div>
+                    </div>
+                    <div class="details-group" style="margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1.5rem;">
+                        <div class="details-label">Notatki</div><div class="details-val" style="white-space:pre-wrap;">${eq.notes||'Brak notatek'}</div>
+                    </div>
+                    
+                    <div class="history-section">
+                        <h3>Historia użytkowania</h3>
+                        <div class="table-container" style="box-shadow:none; border:1px solid var(--border-color);">
+                            <table>
+                                <thead><tr><th>Data</th><th>Operacja</th><th>Pracownik</th><th>Lokalizacja</th></tr></thead>
+                                <tbody>${historyHtml}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btn-edit-equipment').onclick = () => Managers.Equipment.edit(eq.id);
+                this.navigate('equipment-details');
+                
+                // Jeśli urządzenie mobilne, zamykamy menu automatycznie
+                if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+            },
+
+            showEmployeeDetails(id) {
+                const emp = AppState.employees.find(e => e.id === id);
+                if(!emp) return;
+                
+                const contractStr = emp.indefiniteContract ? 'Czas nieokreślony' : (emp.contractEnd || '-');
+                const issues = AppState.transactions.filter(t => t.employeeId === emp.id && t.type === 'issue');
+                const returns = AppState.transactions.filter(t => t.employeeId === emp.id && t.type === 'return');
+                const currentItems = Math.max(0, issues.length - returns.length);
+
+                document.getElementById('employee-details-content').innerHTML = `
+                    <h2 style="margin-bottom: 2rem;">${emp.firstName} ${emp.lastName}</h2>
+                    <div class="details-grid">
+                        <div>
+                            <div class="details-group"><div class="details-label">Stanowisko</div><div class="details-val">${emp.position||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Telefon</div><div class="details-val">${emp.phone||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Wydany sprzęt (ilość)</div><div class="details-val"><span class="badge issued">${currentItems} szt.</span></div></div>
+                        </div>
+                        <div>
+                            <div class="details-group"><div class="details-label">Data rozpoczęcia pracy</div><div class="details-val">${emp.startDate||'-'}</div></div>
+                            <div class="details-group"><div class="details-label">Umowa do</div><div class="details-val">${contractStr}</div></div>
+                        </div>
+                    </div>
+                    <div class="details-group" style="margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1.5rem;">
+                        <div class="details-label">Notatki ogólne</div><div class="details-val" style="white-space:pre-wrap;">${emp.notes||'Brak notatek'}</div>
+                    </div>
+                `;
+                document.getElementById('btn-edit-employee').onclick = () => Managers.Employee.edit(emp.id);
+                this.navigate('employee-details');
+            },
+
+            showLocationDetails(id) {
+                const loc = AppState.locations.find(l => l.id === id);
+                if(!loc) return;
+                const count = AppState.equipment.filter(e => e.locationId === loc.id).length;
+                
+                let mapHtml = '';
+                if(loc.address && loc.address.length > 3) {
+                    const q = encodeURIComponent(loc.address);
+                    mapHtml = `<div class="map-container"><iframe src="https://maps.google.com/maps?q=${q}&t=&z=13&ie=UTF8&iwloc=&output=embed"></iframe></div>`;
+                }
+
+                document.getElementById('location-details-content').innerHTML = `
+                    <h2 style="margin-bottom: 0.5rem; display:flex; align-items:center; gap:1rem;">${loc.name} <span class="badge">${loc.type}</span></h2>
+                    <div class="details-grid" style="margin-top:2rem;">
+                        <div>
+                            <div class="details-group"><div class="details-label">Ilość sprzętu w lokalizacji</div><div class="details-val">${count} szt.</div></div>
+                            <div class="details-group"><div class="details-label">Notatki</div><div class="details-val" style="white-space:pre-wrap;">${loc.notes||'Brak notatek'}</div></div>
+                        </div>
+                        <div>
+                            <div class="details-group"><div class="details-label">Adres</div><div class="details-val">${loc.address||'Brak adresu'}</div></div>
+                            ${mapHtml}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btn-edit-location').onclick = () => Managers.Location.edit(loc.id);
+                this.navigate('location-details');
+            }
+        };
+
+        // ================= START APLIKACJI =================
+        window.addEventListener('DOMContentLoaded', async () => {
+            const loader = document.getElementById('app-loader');
+            const wrapper = document.getElementById('app-wrapper');
+            
+            await StorageManager.init();
+            UI.init();
+            Render.all();
+            
+            loader.style.opacity = '0';
+            setTimeout(() => { loader.style.display = 'none'; wrapper.style.display = 'flex'; }, 500);
+        });
+
+    </script>
+</body>
+</html>
